@@ -1,9 +1,10 @@
-region = "eu-west-2"
-profile = "default"
-availability_zone = "eu-west-2a"
+region = "THE REGION YOU WANT"
+profile = "THE IAM USER TO USE"
+availability_zone = "THE AZ YOU WANT"
 instance_type = "t2.nano"
-key_name = "mykeypair"
+key_name = "burp-collab-kp"
 server_name = "burp-collaborator" # used to set the hostname on the linux box
-zone = "doesnotexist.foo"
-burp_zone = "collaborator" # This will result in collaborator.doesnotexist.foo
-permitted_ssh_cidr_block = "0.0.0.0/0" # It is recommend this is changed to your IP to prevent noise from SSH scanners
+zone = "YOUR DNS ZONE"
+burp_zone = "SUBDOMAIN for Burp Collaborator" # This will result in burp_zone.zone
+permitted_ssh_cidr_block = "0.0.0.0/0" # It is recommend to changed to your IP to prevent noise from SSH scanners
+permitted_collab_client_polling_cidr_block = "0.0.0.0/0" # It is recommend to changed to the IP of yout Burp Collaborator client IP to restrict the access to the polling service

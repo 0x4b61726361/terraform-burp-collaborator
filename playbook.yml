@@ -4,7 +4,10 @@
   gather_facts: False
   pre_tasks:
     - name: Burp | Install Python 2
-      raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
+      raw: test -e /usr/bin/python || (apt -y update && apt install -y python2-minimal)
+
+    - name: Burp | Install JRE
+      raw: apt install -y openjdk-18-jre
 
     - name: Burp | Set hostname
       hostname:
@@ -20,4 +23,4 @@
         mode: 0644
 
   roles:
-    - { role: 4ARMED.burp-collaborator }
+    - ansible_burp_collaborator

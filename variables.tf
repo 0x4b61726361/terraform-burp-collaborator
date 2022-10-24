@@ -36,7 +36,12 @@ variable "permitted_ssh_cidr_block" {
   default = "0.0.0.0/0"
 }
 
+variable "permitted_collab_client_polling_cidr_block" {
+  description = "IP addresses from which Burp Collaborator Client connections will be allowed. Default is all, which is not secure."
+  default = "0.0.0.0/0"
+}
+
 variable "domain_registered_with_other" {
   description = "Is the domain is registered with someone other than AWS set this to true as we will need to create the hosted zone"
-  default = "false"
+  default = "true"
 }

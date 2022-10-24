@@ -10,4 +10,4 @@
     - burp_server_domain: collaborator.example.com
 
   roles:
-    - { role: 4ARMED.burp-collaborator }
+    - { role: ansible_burp_collaborator }

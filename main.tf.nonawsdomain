@@ -8,7 +8,7 @@ data "aws_ami" "ubuntu" {
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-xenial-16.04-amd64-server-*"]
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
   }
 
   filter {
@@ -16,7 +16,7 @@ data "aws_ami" "ubuntu" {
     values = ["hvm"]
   }
 
-  owners = ["099720109477"] # Canonical
+  owners = ["099720109477"] # Amazon
 }
 
 resource "aws_key_pair" "key" {
@@ -29,7 +29,7 @@ resource "aws_instance" "collaborator" {
   instance_type = "${var.instance_type}"
   key_name = "${aws_key_pair.key.key_name}"
 
-  tags {
+  tags = {
     Name = "${var.server_name}"
   }
 
@@ -38,7 +38,7 @@ resource "aws_instance" "collaborator" {
   ]
 
   provisioner "local-exec" {
-    command = "sleep 30 && ansible-galaxy install -r requirements.yml && echo \"[collaborator]\n${aws_instance.collaborator.public_ip} ansible_connection=ssh ansible_ssh_user=ubuntu ansible_ssh_private_key_file=${var.key_name}\" > inventory && ANSIBLE_HOST_KEY_CHECKING=false ansible-playbook -i inventory playbook.yml --extra-vars \"server_hostname=${var.server_name} burp_server_domain=${var.burp_zone}.${var.zone} burp_local_address=${aws_instance.collaborator.private_ip} burp_public_address=${aws_instance.collaborator.public_ip}\""
+    command = "sleep 30 && echo \"[collaborator]\n${aws_instance.collaborator.public_ip} ansible_connection=ssh ansible_ssh_user=ubuntu ansible_ssh_private_key_file=${var.key_name}\" > inventory && ANSIBLE_HOST_KEY_CHECKING=false ansible-playbook -i inventory playbook.yml --extra-vars \"server_hostname=${var.server_name} burp_server_domain=${var.burp_zone}.${var.zone} burp_local_address=${aws_instance.collaborator.private_ip} burp_public_address=${aws_instance.collaborator.public_ip}\""
   }
 }
 
@@ -107,7 +107,7 @@ resource "aws_security_group" "collaborator_sg" {
     from_port = 9090
     to_port = 9090
     protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["${var.permitted_collab_client_polling_cidr_block}"]
   }
 
   # Polling (HTTPS)
@@ -115,7 +115,7 @@ resource "aws_security_group" "collaborator_sg" {
     from_port = 9443
     to_port = 9443
     protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["${var.permitted_collab_client_polling_cidr_block}"]
   }
 
   egress {

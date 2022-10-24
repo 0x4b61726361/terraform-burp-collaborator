@@ -1,0 +1,7 @@
+---
+generate_self_signed_certs: true
+country: FR
+state: Ile-De-France
+locality: Paris
+organisation: Corp
+organisational_unit: Training

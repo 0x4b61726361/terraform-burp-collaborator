@@ -1,5 +1,5 @@
-burpsuite_pro_v*.jar
+burp*
 terraform.tfstate*
-tls/burp.*
-mykeypair*
 inventory
+intermediate.crt
+.terraform

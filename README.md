@@ -1,20 +1,32 @@
 # Burpsuite Professional Private Collaborator Server using Terraform and Ansible
 
+Forked from the 4ARMED work (https://github.com/4ARMED/terraform-burp-collaborator) and inspired by Anshumanbh (https://github.com/anshumanbh/terraform-burp-collaborator). Thank you very much to them.
+
+
+# Additions and modifications
+  - Adding specific options to burp_collaborator_config file to manage specific AWS Security-Group for Burp Collaboraotr polling port numbers .
+  - Inspired by the 4ARMED Ansible role hosted on Ansible-Galaxy, a local role is used to avoid relying on Ansible-Galaxy.
+  - The setup of Java JRE is also integrated into the Ansible playbook.
+  - The directives for SSL certificates management has been updated in the Burp Collaborator config file.
+  - Quick fix in main.tf files
+  - main.tf has been modified to match Ubuntu 22.04
+
+
 ## Introduction
 
-This is a [Terraform](https://terraform.io/) configuration to build a [Burp Private Collaborator Server](https://portswigger.net/burp/help/collaborator_deploying.html) on an [Amazon Web Services EC2 Instance](https://aws.amazon.com/). It uses Terraform to create the instance and then uses our [Ansible Burp Collaborator Server role](https://galaxy.ansible.com/4ARMED/burp-collaborator/) from Ansible Galaxy to provision the Burp service.
+This is a [Terraform](https://terraform.io/) configuration to build a [Burp Private Collaborator Server](https://portswigger.net/burp/help/collaborator_deploying.html) on an [Amazon Web Services EC2 Instance](https://aws.amazon.com/). It uses Terraform to create the instance and then uses a local Ansible role to provision the Burp service.
 
-Some basic awareness of the AWS API and perhaps a little Terraform is assumed but if you're playing with Burp Collaborator you are hopefully technical enough to muddle through if not. Ping us questions if you get stuck [@4ARMED](https://twitter.com/4armed).
+Some basic awareness of the AWS API and perhaps a little Terraform is assumed but if you're playing with Burp Collaborator you are hopefully technical enough to muddle through if not.
 
 This configuration assumes you have registered your domain on the AWS Route53 Registrar. There's a very good reason why this is simpler, we don't have to mess about with working out NS servers for the hosted zone and waiting for NS updates to propagate. If we keep it all within the AWS family it's quicker and easier. It's almost like they've thought of this. ;-)
 
-If you want to use an existing domain registered with another provider it is perfectly possible and there are instructions at the end on how to tweak this accordingly.
+If you want to use an existing domain registered with another provider it is perfectly possible and there are instructions at the end on how to tweak this accordingly. In addition there is a special gift for those who wants to use OVH and Let's Encrypt.
 
 ## *** WARNING ***
 
 Just in case you've been living in a cave, everything in this README will cost you money on AWS. Even the free tier won't save you as it costs $0.50 per month for a hosted zone.
 
-4ARMED are not in any way liable for your infrastructure costs. You should know by now not to just run things without understanding what you're doing. :-)
+4ARMED and/or KarK are not in any way liable for your infrastructure costs. You should know by now not to just run things without understanding what you're doing. :-)
 
 ## Steps
 
@@ -49,7 +61,7 @@ If you don't have Ansible installed, you will need to do so. I recommend the dev
 ### Clone this repo to a local folder
 
 ```
-git clone https://github.com/4ARMED/terraform-burp-collaborator.git
+git clone https://github.com/0x4b61726361/terraform-burp-collaborator.git
 cd terraform-burp-collaborator
 ```
 
@@ -61,15 +73,15 @@ We're going to assume you don't have a keypair already in AWS so we'll generate 
 
 Feel free to use a different comment or algorithm and it's best to set a passphrase on the key (obvs).
 
-`ssh-keygen -b 2048 -t rsa -C private_burp@aws -f mykeypair`
+`ssh-keygen -b 2048 -t rsa -C private_burp@aws -f burp-collab-kp`
 
 Which will produce output like:
 ```
 Generating public/private rsa key pair.
 Enter passphrase (empty for no passphrase):
 Enter same passphrase again:
-Your identification has been saved in mykeypair.
-Your public key has been saved in mykeypair.pub.
+Your identification has been saved in burp-collab-kp.
+Your public key has been saved in burp-collab-kp.pub.
 ```
 
 Make sure your keypair file has the same name as your _key_pair_name_ variable as we will look there to upload it to AWS.
@@ -80,7 +92,7 @@ You will need to supply your own copy of the latest Burp Suite Professional jar 
 
 In this example I've used the latest version at the time of writing. Given the rate of release these instructions will be out of date in a couple of weeks.
 
-`cp /some/path/to/burpsuite_pro_v1.7.21.jar .`
+`cp /some/path/to/burpsuite_pro.jar .`
 
 ### Configure Terraform variables
 
@@ -100,21 +112,24 @@ availability_zone = "eu-west-2a"
 instance_type = "t2.nano"
 
 # Make sure the name of your keypair matches the filename minus the .pub suffix.
-key_name = "mykeypair"
+key_name = "burp-collab-kp"
 
 # You can call this what you like, it's only used to set the hostname
 # on the Linux box
 server_name = "burp-collaborator"
 
-# Don't use this one. It's ours.
-zone = "4armed.net"
+# Don't use this one. .
+zone = "YOUR_DNS_ZONE"
 
 # This is a pretty sensible default but again, change it if you like. The only downside is it's long which may
 # cause problems if you only have limited injection space.
-burp_zone = "collaborator" # This will result in collaborator.4armed.net
+burp_zone = "collaborator" # This will result in collaborator.YOUR_DNS_ZONE
 
 # Restrict this to places you will SSH from. The whole Internet is not all so friendly.
 permitted_ssh_cidr_block = "0.0.0.0/0"
+
+# Restrict this to places you will use Burp Collaborator client from.
+permitted_collab_client_polling_cidr_block = "0.0.0.0/0"
 ```
 
 ### Run Terraform
@@ -133,11 +148,12 @@ Now sit back and behold the awesomeness of infrastructure as code.
 
 The following operations will be performed:
 
-* Create AWS security group permitting all Burp Collaborator traffic plus SSH to your _permitted_ssh_cidr_block_ CIDR.
-* Create EC2 instance using Ubuntu Xenial (16.04) image for your chosen region in your default VPC.
-* Create an A record for your chosen hostname in your AWS hosted zone pointing to the IP address of new EC2 instance
-* Create an NS record for your chosen hostname pointing to the A record just created.
-* Run the 4ARMED.burp-collaborator Ansible playbook on the EC2 instance to install and configure Burp Collaborator.
+* Create AWS security group permitting all Burp Collaborator traffic plus SSH to your _permitted_ssh_cidr_block_ CIDR and Polling Burp Collaborator client from the sepcified IP, or subnet.
+* Create EC2 instance using Ubuntu Jammy (22.04) image for your chosen region in your default VPC.
+* Create an A record for your chosen hostname in your AWS hosted zone pointing to the IP address of new EC2 instance (if using th AWS template).
+* Create an NS record for your chosen hostname pointing to the A record just created (if using th AWS template).
+* Run the ansible_burp_collaborator role for Ansible playbook on the EC2 instance to install and configure Burp Collaborator Server.
+
 
 ### Non-AWS registered domain
 
@@ -156,15 +172,20 @@ Now run the `plan` and `apply` steps as above. It will output the public IP addr
 terraform output public_ip
 ```
 
+In the dns-script folder you will find a [ruby script](dns-scripts/set_route53_ns.rb) provided by 4ARMED for namecheap domain name customers. I also added a [dirty python script](dns-scripts/update_ovh_dns_record.py) to update the DNS entries for OVH domain name customers.
+:warning: OVH API for creating NS records is not working as expected and after using the script you may connect to the OVH GUI, and select modify on the NS record created and just select apply wothout modification to get rid of the error. The GUI of OVH do not use the same API as the SDK and something weird is happening, this is a dirty fix to make it works.
+
 ## Testing
 
 If everything went ok you should be able to plug the hostname of your new private server into Burp and test it out.
 
 Fire up Burp Suite Professional and go to _Project options > Misc > Burp Collaborator Server_ and check the box for _Use a private Collaborator server_.
 
-In _Server location_ enter the hostname of your server. Hint, this will be the value of `burp_zone` prepended to `zone` from [terraform.tfvars](terraform.tfvars). In our example `collaborator.4armed.net`. You will also need to tick the box for _Poll over unencrypted HTTP_ at the moment as we have used a self-signed certificate.
+In _Server location_ enter the hostname of your server. Hint, this will be the value of `burp_zone` prepended to `zone` from [terraform.tfvars](terraform.tfvars). You will also need to tick the box for _Poll over unencrypted HTTP_ at the moment as we have used a self-signed certificate.
 
 ### Using a "proper" TLS certificate
+
+#### Using a CSR
 
 If you would like to purchase a proper wildcard TLS certificate for use with this server you need to generate a more appropriate CSR (the default values are fairly generic). There is an Ansible playbook included in this folder to help you.
 
@@ -179,6 +200,35 @@ Here are the steps.
 5. Copy your new certificate to _burp.crt_
 6. Copy any intermediate CA cert bundle to _intermediate.crt_
 7. `ansible-playbook -i inventory playbook.yml --tags setup,restart`
+
+#### Using Lets'Encrypt
+
+1. Use the certbot docker, in this case with an OVH hosted domain:
+
+Create the .ovh.ini with the following informations:
+
+```# OVH API credentials used by Certbot
+dns_ovh_endpoint = ovh-eu
+dns_ovh_application_key = MDAwMDAwMDAwMDAw
+dns_ovh_application_secret = MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw
+dns_ovh_consumer_key = MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw
+```
+
+Then use the Certbot docker like this:
+```
+docker run -it --rm --name certbot -v "$PWD/etc:/etc/letsencrypt" -v "$PWD/var/lib:/var/lib/letsencrypt" -v $PWD/.ovh.ini:/root/.ovh.ini certbot/dns-ovh certonly --dns-ovh --dns-ovh-credentials /root/.ovh.ini --dns-ovh-propagation-seconds 60 -d $DOMAIN --non-interactive --agree-tos --email $EMAIL
+```
+
+2. Copy the retrieved files and rename them into the local directory of the terraform-burp-collaborator:
+  - cert.pem --> burp.crt
+  - chain.pem --> intermediate.crt
+  - privkey.pem --> burp.pk8
+
+3. You may want to relauch the playbook to take into the account the update:
+
+```
+ansible_playbook -i inventory.yml playbook.yml --tags setup,restart
+```
 
 
 ## Destroying
