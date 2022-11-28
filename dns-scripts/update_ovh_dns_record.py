@@ -8,8 +8,16 @@ parser = argparse.ArgumentParser(description='Provide server public IP, subdomai
 parser.add_argument('ip_target', action='store', help='IP address for Burp Collaborator')
 parser.add_argument('subdomain', action='store', help='DNS entry to create in the zone')
 parser.add_argument('zone', action='store', help='Domain zone to use')
+parser.add_argument('ovhini', action='store', help='Path to OVH ini file')
 
-if len(sys.argv)!=4:
+ovh_method = ""
+if len(sys.argv)==4:
+    # Do env variables to get OVH keys
+    ovh_method="env"
+if len(sys.argv)==5:
+    # Do OVH ini to get OVH keys
+    ovh_method = "file"
+else:
     parser.print_help()
     sys.exit(1)
 
@@ -17,20 +25,39 @@ options = parser.parse_args()
 target_ip = options.ip_target
 zone = options.zone
 subdomain = options.subdomain
+ovhini = options.ovhini
 ns_servers = ['ns1']
 a_records = ['ns1.'+subdomain, subdomain]
 
-# Build OVH Client
-try:
-    client = ovh.Client(
-            endpoint=os.environ['OVH_ENDPOINT'],    # OVH Endpoint
-            application_key=os.environ['OVH_APP_KEY'],    # Application Key
-            application_secret=os.environ['OVH_APP_SECRET'], # Application Secret
-            consumer_key=os.environ['OVH_CONSUMER_KEY'],       # Consumer Key
-    )
-except KeyError:
-    print('Aborting! Environement Varaibles not found!')
-    exit(0)
+if ovh_method == "env":
+    # Build OVH Client from env variables
+    try:
+        client = ovh.Client(
+                endpoint=os.environ['OVH_ENDPOINT'],    # OVH Endpoint
+                application_key=os.environ['OVH_APP_KEY'],    # Application Key
+                application_secret=os.environ['OVH_APP_SECRET'], # Application Secret
+                consumer_key=os.environ['OVH_CONSUMER_KEY'],       # Consumer Key
+        )
+    except KeyError:
+        print('Aborting! Environement Varaibles not found!')
+        exit(0)
+elif ovh_method == "file":
+    # Build OVH Client from OVH ini file
+    ovhkeys = {}
+    with open(ovhini) as myfile:
+        for line in myfile:
+            name, var = line.partition("=")[::2]
+            ovhkeys[name.strip()] = var.strip()
+    try:
+        client = ovh.Client(
+                endpoint=ovhkeys['dns_ovh_endpoint'],    # OVH Endpoint
+                application_key=ovhkeys['dns_ovh_application_key'],    # Application Key
+                application_secret=ovhkeys['dns_ovh_application_secret'], # Application Secret
+                consumer_key=ovhkeys['dns_ovh_consumer_key'],       # Consumer Key
+        )
+    except KeyError:
+        print('Aborting! Environement Varaibles not found!')
+        exit(0)
 
 
 # Check A Records
@@ -88,4 +115,3 @@ for server in range(len(ns_servers)):
 # Refresh to update records
 result = client.post('/domain/zone/'+zone+'/refresh')
 print("Refreshing to apply modifications")
-
