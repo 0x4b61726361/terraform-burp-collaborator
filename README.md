@@ -227,7 +227,7 @@ docker run -it --rm --name certbot -v "$PWD/etc:/etc/letsencrypt" -v "$PWD/var/l
 3. You may want to relauch the playbook to take into the account the update:
 
 ```
-ansible_playbook -i inventory.yml playbook.yml --tags setup,restart
+ansible-playbook -i inventory.yml playbook.yml --tags setup,restart
 ```
 
 
